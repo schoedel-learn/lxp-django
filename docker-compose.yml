@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  # Django API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lxp-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    command: python manage.py runserver 0.0.0.0:8000
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: lxp-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${DB_NAME:-lxp_db}
+      POSTGRES_USER: ${DB_USER:-lxp_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-lxp_password}
+
+  # MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: lxp-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGODB_NAME:-lxp_content}
+
+  # Redis (for Celery)
+  redis:
+    image: redis:7-alpine
+    container_name: lxp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Celery Worker
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lxp-celery
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    command: celery -A lxp_core worker -l info
+
+  # Celery Beat (scheduler)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lxp-celery-beat
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A lxp_core beat -l info
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: lxp-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: lxp-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+
+  # ClickHouse Analytics Database
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: lxp-clickhouse
+    ports:
+      - "8123:8123"
+      - "9009:9009"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-lxp_analytics}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+
+  # Learning Locker LRS (optional - can use SQL LRS instead)
+  # Uncomment if you want to use Learning Locker
+  # lrs:
+  #   image: learninglocker/learninglocker:latest
+  #   container_name: lxp-lrs
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - mongodb
+  #   environment:
+  #     MONGODB_PATH: mongodb://mongodb:27017/learninglocker
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  minio_data:
+  qdrant_data:
+  clickhouse_data:
