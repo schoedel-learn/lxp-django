@@ -15,7 +15,8 @@ This project is a comprehensive Learner Experience Platform where learning is or
 
 ## Documentation
 
-- [Requirements Specification](docs/REQUIREMENTS.md) - Complete implementation-ready requirements document
+- [Technology Overview](docs/TECHNOLOGY_OVERVIEW.md) - Complete guide to technologies, languages, dependencies, and architecture
+- [Requirements Specification](docs/REQUIREMENTS.md) - Implementation-ready requirements document
 
 ## Technology Stack
 
